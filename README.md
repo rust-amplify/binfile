@@ -1,4 +1,4 @@
-# Binary files with magic numbers
+# Binary files with magic numbers and versioning
 
 ![Build](https://github.com/rust-amplify/binfile/workflows/Build/badge.svg)
 ![Lints](https://github.com/rust-amplify/binfile/workflows/Lints/badge.svg)
