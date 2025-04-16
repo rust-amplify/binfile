@@ -50,6 +50,15 @@ impl<const MAGIC: u64, const VERSION: u16> DerefMut for BinFile<MAGIC, VERSION> 
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
 }
 
+impl<const MAGIC: u64, const VERSION: u16> Read for BinFile<MAGIC, VERSION> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> { self.0.read(buf) }
+}
+
+impl<const MAGIC: u64, const VERSION: u16> Write for BinFile<MAGIC, VERSION> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> { self.0.write(buf) }
+    fn flush(&mut self) -> io::Result<()> { self.0.flush() }
+}
+
 impl<const MAGIC: u64, const VERSION: u16> BinFile<MAGIC, VERSION> {
     /// The magical byte octet, taken from the generic parameter of the type. It must be a big
     /// endian-serialized octet.
