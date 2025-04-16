@@ -1,6 +1,6 @@
 [package]
 name = "binfile"
-version = "0.1.0"
+version = "0.2.0"
 description = "Binary files with magic numbers and versioning"
 authors = ["Dr. Maxim Orlovsky <orlovsky@ubideco.org>"]
 keywords = ["encoding", "file"]
