@@ -1,0 +1,18 @@
+[package]
+name = "binfile"
+version = "0.1.0"
+description = "Binary files with magic numbers"
+authors = ["Dr. Maxim Orlovsky <orlovsky@ubideco.org>"]
+keywords = ["encoding", "file"]
+categories = ["encoding", "filesystem"]
+repository = "https://github.com/rust-amplify/aora"
+homepage = "https://github.com/rust-amplify"
+license = "Apache-2.0"
+readme = "README.md"
+edition = "2021"
+rust-version = "1.77.0"
+
+[dependencies]
+
+[features]
+default = []
