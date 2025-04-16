@@ -134,3 +134,82 @@ pub enum BinFileError {
         actual: u16,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+
+    #[test]
+    fn create() {
+        const MY_MAGIC: u64 = u64::from_be_bytes(*b"MYMAGIC!");
+        let mut file = BinFile::<MY_MAGIC, 1>::create("target/test1").unwrap();
+        file.write_all(b"hello world").unwrap();
+        file.flush().unwrap();
+
+        let check = fs::read("target/test1").unwrap();
+        assert_eq!(check, b"MYMAGIC!\x00\x01hello world");
+    }
+
+    #[test]
+    fn create_new() {
+        const MY_MAGIC: u64 = u64::from_be_bytes(*b"MYMAGIC!");
+        fs::remove_file("target/test2").ok();
+        let mut file = BinFile::<MY_MAGIC, 1>::create_new("target/test2").unwrap();
+        file.write_all(b"hello world").unwrap();
+        file.flush().unwrap();
+
+        let fail = BinFile::<MY_MAGIC, 1>::create_new("target/test2");
+        assert_eq!(fail.unwrap_err().kind(), io::ErrorKind::AlreadyExists);
+
+        let check = fs::read("target/test2").unwrap();
+        assert_eq!(check, b"MYMAGIC!\x00\x01hello world");
+    }
+
+    #[test]
+    fn open() {
+        const MY_MAGIC: u64 = u64::from_be_bytes(*b"MYMAGIC!");
+        let mut file = BinFile::<MY_MAGIC, 1>::create("target/test3").unwrap();
+        file.write_all(b"hello world").unwrap();
+        file.flush().unwrap();
+
+        let mut file = BinFile::<MY_MAGIC, 1>::open("target/test3").unwrap();
+        let mut buf = Vec::new();
+        let check = file.read_to_end(&mut buf).unwrap();
+        assert_eq!(check, 11);
+        assert_eq!(buf, b"hello world");
+    }
+
+    #[test]
+    fn open_wrong_magic() {
+        const MY_MAGIC: u64 = u64::from_be_bytes(*b"MYMAGIC!");
+        let mut file = BinFile::<MY_MAGIC, 1>::create("target/test4").unwrap();
+        file.write_all(b"hello world").unwrap();
+        file.flush().unwrap();
+
+        let err = BinFile::<0xFFFFFF_FFFFFF, 1>::open("target/test4").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::Other);
+        assert_eq!(err.downcast::<BinFileError>().unwrap(), BinFileError::InvalidMagic {
+            filename: "target/test4".to_string(),
+            expected: 0xFFFFFF_FFFFFF,
+            actual: MY_MAGIC,
+        });
+    }
+
+    #[test]
+    fn open_wrong_version() {
+        const MY_MAGIC: u64 = u64::from_be_bytes(*b"MYMAGIC!");
+        let mut file = BinFile::<MY_MAGIC, 1>::create("target/test5").unwrap();
+        file.write_all(b"hello world").unwrap();
+        file.flush().unwrap();
+
+        let err = BinFile::<MY_MAGIC, 0x0100>::open("target/test5").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::Other);
+        assert_eq!(err.downcast::<BinFileError>().unwrap(), BinFileError::InvalidVersion {
+            filename: "target/test5".to_string(),
+            expected: 0x0100,
+            actual: 1,
+        });
+    }
+}
