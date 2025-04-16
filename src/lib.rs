@@ -10,7 +10,7 @@
 #[macro_use]
 extern crate amplify;
 
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
@@ -97,26 +97,43 @@ impl<const MAGIC: u64, const VERSION: u16> BinFile<MAGIC, VERSION> {
     /// bytes) and version number (2 bytes). The produced file stream will start at byte offset 10.
     pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
         let path = path.as_ref();
-        let mut file = File::open(&path)?;
+        let mut file = Self(File::open(&path)?);
+        file.check(&path)?;
+        Ok(file)
+    }
+
+    /// Attempts to open a file in read-write mode the same way as [`OpenOptions::new`], followed by
+    /// `read(true)` and `write(true)` calls does.
+    ///
+    /// Then it reads first 10 bytes of the file and verifies them to match the magic number (8
+    /// bytes) and version number (2 bytes). The produced file stream will start at byte offset 10.
+    pub fn open_rw(path: impl AsRef<Path>) -> io::Result<Self> {
+        let path = path.as_ref();
+        let mut file = Self(OpenOptions::new().read(true).write(true).open(&path)?);
+        file.check(&path)?;
+        Ok(file)
+    }
+
+    fn check(&mut self, filename: &Path) -> io::Result<()> {
         let mut magic = [0u8; 8];
-        file.read_exact(&mut magic)?;
+        self.read_exact(&mut magic)?;
         if magic != MAGIC.to_be_bytes() {
             return Err(io::Error::other(BinFileError::InvalidMagic {
-                filename: path.to_string_lossy().to_string(),
+                filename: filename.to_string_lossy().to_string(),
                 expected: MAGIC,
                 actual: u64::from_be_bytes(magic),
             }));
         }
         let mut version = [0u8; 2];
-        file.read_exact(&mut version)?;
+        self.read_exact(&mut version)?;
         if version != VERSION.to_be_bytes() {
             return Err(io::Error::other(BinFileError::InvalidVersion {
-                filename: path.to_string_lossy().to_string(),
+                filename: filename.to_string_lossy().to_string(),
                 expected: VERSION,
                 actual: u16::from_be_bytes(version),
             }));
         }
-        Ok(Self(file))
+        Ok(())
     }
 }
 
@@ -177,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn open() {
+    fn open_ro() {
         const MY_MAGIC: u64 = u64::from_be_bytes(*b"MYMAGIC!");
         let mut file = BinFile::<MY_MAGIC, 1>::create("target/test3").unwrap();
         file.write_all(b"hello world").unwrap();
@@ -188,6 +205,21 @@ mod tests {
         let check = file.read_to_end(&mut buf).unwrap();
         assert_eq!(check, 11);
         assert_eq!(buf, b"hello world");
+    }
+
+    #[test]
+    fn open_rw() {
+        const MY_MAGIC: u64 = u64::from_be_bytes(*b"MYMAGIC!");
+        let mut file = BinFile::<MY_MAGIC, 1>::create("target/test5").unwrap();
+        file.write_all(b"hello world").unwrap();
+        file.flush().unwrap();
+
+        let mut file = BinFile::<MY_MAGIC, 1>::open_rw("target/test5").unwrap();
+        let mut buf = Vec::new();
+        let check = file.read_to_end(&mut buf).unwrap();
+        assert_eq!(check, 11);
+        assert_eq!(buf, b"hello world");
+        file.write_all(b"\nand hello again").unwrap();
     }
 
     #[test]
